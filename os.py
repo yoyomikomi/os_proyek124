@@ -1,5 +1,4 @@
-import os
-import shlex
+import os, shlex
 
 #izin tes 
 username = os.getlogin()
@@ -25,8 +24,12 @@ def main():
         if not user_input.strip():
             print('emptyy oooo')
             continue
-
-        input_args = shlex.split(user_input)
+        
+        try:
+            input_args = shlex.split(user_input)
+        except:
+            print("Unknown error occured.")
+            continue
 
         for i, token in enumerate(input_args):
             print(f'input_args[{i}] = {token}')
@@ -38,25 +41,39 @@ def main():
 
         print(input_args)
         print('')
-        if command == "cd":
-            if len(argument) > 0:
+
+        match command:
+
+            case "cd":
+                if len(argument) > 0:
+                    try:
+                        os.chdir(f"{argument[0]}")
+                        
+                    except FileNotFoundError:
+                        print(f"cd: {argument[0]}: No such file or directory")
+                    except PermissionError:
+                        print(f"cd: {argument[0]}: Permission denied")
+                else:
+                    pass
+
+            case "pwd":
+                print(os.getcwd())
+
+            case "ls":
                 try:
-                    os.chdir(f"{argument[0]}")
-                    
-                except FileNotFoundError:
-                    print(f"cd: {argument[0]}: No such file or directory")
-                except PermissionError:
-                    print(f"cd: {argument[0]}: Permission denied")
-            else:
-                pass
+                    pid = os.fork()
 
-        elif command == "pwd":
-            print(os.getcwd())
+                    if pid > 0:
+                        print(f"Parent process - PID: {os.getpid()} | Child PID: {pid}")
+                    else:
+                        print(f"Child process - PID: {os.getpid()} | Child PID: {os.getppid()}")
 
-        else:
-            print('\n\33[1m\33[91mbe patient kitten daddy is implementing it next week ;)')
-#e mau nanya dah, kl misal foldernya ada spasi gmn ? blm ak mau coba pake backslash di spasinya bisa tak
-# cb cb
+                except OSError as err:
+                    print(err)
+
+            case _:
+                print('\n\33[1m\33[91mbe patient kitten daddy is implementing it next week ;)')
+
 if __name__ == '__main__':
     main()
         
