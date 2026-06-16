@@ -61,12 +61,30 @@ def main():
 
             case "ls":
                 try:
-                    pid = os.fork()
+                    if hasattr(os, 'fork'): #check kl os bisa fork or not
 
-                    if pid > 0:
-                        print(f"Parent process - PID: {os.getpid()} | Child PID: {pid}")
-                    else:
-                        print(f"Child process - PID: {os.getpid()} | Child PID: {os.getppid()}")
+                        pid = os.fork()
+
+                        if pid == 0:
+                            print()
+                            if len(argument) == 0: 
+                                os.execvp('ls', ['ls'])
+                            else:
+                                os.execvp('ls', ['ls', *argument])
+
+                            # exec adlh cmd buat executing cmd yg ad d argumenny
+                            # v = vector, p = path
+                            # execvp berbasis path, jd egk perlu path absolut
+                            # intiny execvp(file, args) nyari file ls buat di execute dg argumen yg ad di list
+
+                        elif pid > 0:
+                            finishedpid, status = os.waitpid(pid, 0)
+                        else:
+                            print("NOOOO")
+                            os._exit
+    
+                    else: #kl egk pny fork pake ini 
+                        print(os.listdir())
 
                 except OSError as err:
                     print(err)
