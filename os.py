@@ -8,10 +8,10 @@ def main():
     while True:
         try:
             cwd = os.getcwd()
-            user_input = input(f"\33[1m\33[35m{username} -{device}@{cwd}:~$ \33[0m").strip()
+            user_input = input(f"\33[1m\33[35m{username} ~ {device}@{cwd}:~$ \33[0m").strip()
 
             if user_input == "exit":
-                print('\ndadahh')
+                print('\33[5mdadahh\33[0m')
                 break
 
         except KeyboardInterrupt:
@@ -25,7 +25,7 @@ def main():
         print(user_input)
 
         if not user_input.strip():
-            print('emptyy oooo')
+            print('\33[5memptyy oooo\33[0m')
             continue
         
         try:
