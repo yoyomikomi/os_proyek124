@@ -1,4 +1,4 @@
-import os, shlex, subprocess
+import os, shlex, subprocess, shutil
 
 #izin tes 
 username = os.getlogin()
@@ -88,7 +88,7 @@ def main():
                             finishedpid, status = os.waitpid(pid, 0)
                         else:
                             print("NOOOO")
-                            os._exit
+                            os._exit(1)
     
                     else: #kl egk pny fork pake ini, windows alternative doang; main ls yg pake fork
                         child = subprocess.Popen(['dir', *argument], 
@@ -101,6 +101,65 @@ def main():
 
                 except OSError as err:
                     print(err)
+
+            case "cp":
+                # check if enough arguumnetes
+                if len(argument) < 2:
+                    print("cp: missing file operand")
+                    print("Usage: cp source destination")
+                    print("       cp source1 source2 ... destination")
+                    continue
+                
+                # last argument = destination
+                dest = argument[-1]
+                sources = argument[:-1]
+                
+                try:
+                    # ceck if destination is  directory udh ada
+                    if os.path.isdir(dest):
+                        # loop through each source
+                        for src in sources:
+                            try:
+                                # soucce IS directory
+                                if os.path.isdir(src):
+                                    shutil.copytree(src, os.path.join(dest, os.path.basename(src)))
+                                    print(f"Copied directory: {src} -> {dest}")
+                                # source IS file
+                                else:
+                                    shutil.copy2(src, dest)
+                                    print(f"Copied file: {src} -> {dest}")
+                            except FileNotFoundError:
+                                print(f"cp: {src}: No such file or directory")
+                            except PermissionError:
+                                print(f"cp: {src}: Permission denied")
+                            except FileExistsError:
+                                print(f"cp: {os.path.join(dest, os.path.basename(src))}: Already exists")
+                    # destination is file or doesn't exist
+                    else:
+                        # mult source tpi dest nya file / gaada
+                        if len(sources) > 1:
+                            print(f"cp: target '{dest}' is not a directory")
+                            continue
+                        # single source
+                        src = sources[0]
+                        try:
+                            # source nya directory
+                            if os.path.isdir(src):
+                                shutil.copytree(src, dest)
+                                print(f"Copied directory: {src} -> {dest}")
+                            # source nya file
+                            else:
+                                shutil.copy2(src, dest)
+                                print(f"Copied file: {src} -> {dest}")
+                        except FileNotFoundError:
+                            print(f"cp: {src}: No such file or directory")
+                        except PermissionError:
+                            print(f"cp: {src}: Permission denied")
+                        except FileExistsError:
+                            print(f"cp: {dest}: Already exists")
+                #klo ada error lain
+                except Exception as e:
+                    print(f"cp: {e}")
 
             case _:
                 print('\n\33[1m\33[91mbe patient kitten daddy is implementing it next week ;)')
