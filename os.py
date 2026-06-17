@@ -1,4 +1,4 @@
-import os, shlex
+import os, shlex, subprocess
 
 #izin tes 
 username = os.getlogin()
@@ -9,15 +9,19 @@ def main():
 
         try:
             cwd = os.getcwd()
-            user_input = input(f"\33[1m\33[35m{username}_{cwd}:~$ \33[0m").strip()
+            user_input = input(f"\33[1m\33[35m{username}@{cwd}:~$ \33[0m").strip()
 
             if user_input == "exit":
                 print('\ndadahh')
                 break
 
         except KeyboardInterrupt:
-            print('\ndadahh')
-            break
+            print()
+            continue
+
+        except EOFError:
+            print()
+            continue
 
         print(user_input)
 
@@ -59,6 +63,9 @@ def main():
             case "pwd":
                 print(os.getcwd())
 
+            case "clear":
+                os.system('cls||clear')
+
             case "ls":
                 try:
                     if hasattr(os, 'fork'): #check kl os bisa fork or not
@@ -83,8 +90,14 @@ def main():
                             print("NOOOO")
                             os._exit
     
-                    else: #kl egk pny fork pake ini 
-                        print(os.listdir())
+                    else: #kl egk pny fork pake ini, windows alternative doang; main ls yg pake fork
+                        child = subprocess.Popen(['dir', *argument], 
+                                                    stdout=subprocess.PIPE, 
+                                                    stderr=subprocess.PIPE, 
+                                                    text=True, 
+                                                    shell=True)
+                        stdout, stderr = child.communicate()
+                        print(stdout)
 
                 except OSError as err:
                     print(err)
