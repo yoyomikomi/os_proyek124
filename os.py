@@ -59,19 +59,19 @@ def main():
             argument = input_args[1:] if len(input_args) > 1 else []
 
             single_cmds(command, argument, cwd)
+            
+            if len(argument) > 0 and argument[0] == "--help":
+                show_help(command)
+                continue
         else:
             execute_pipe_cmds(pipe_cmds)
 
 
-        print(f'\nCommand: {command}')
-        print(f'Argument: {argument}')
+        # print(f'\nCommand: {command}')
+        # print(f'Argument: {argument}')
 
-        print(input_args)
-        print('')
-
-        if len(argument) > 0 and argument[0] == "--help":
-            show_help(command)
-            continue
+        # print(input_args)
+        # print('')
 
 def single_cmds(command, argument, cwd):
     
@@ -383,6 +383,8 @@ def execute_pipe_cmds(pipedcmdlist):
     n_cmds = len(pipedcmdlist)
     prev_pipe = None
 
+    active_pids = []
+
     for i, cmd_str in enumerate(pipedcmdlist):
         try:
             args = shlex.split(cmd_str)
@@ -427,9 +429,12 @@ def execute_pipe_cmds(pipedcmdlist):
             if not last_cmd:
                 os.close(pipe_w)
                 prev_pipe = pipe_r
-        
-    for _ in range(n_cmds):
-        os.waitpid(pid, 0)
+
+    for pid in active_pids:
+        try:
+            os.waitpid(pid, 0)
+        except ChildProcessError:
+            pass
 
 
 def show_help(command):
