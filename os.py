@@ -1,44 +1,68 @@
-import os, shlex, subprocess, shutil, platform
+import os, shlex, subprocess, shutil, platform, sys
 
 #izin tes 
 username = os.getlogin()
 device = platform.node()
+is_interactive = sys.stdin.isatty()
 
 def main():
     while True:
         try:
             cwd = os.getcwd()
-            user_input = input(f"\33[1m\33[35m{username} ~ {device}@{cwd}:~$ \33[0m").strip()
+            if is_interactive: 
+                prompt = f"\33[1m\33[35m{username} ~ {device}@{cwd}:~$ \33[0m"
+                user_input = input(prompt).strip()
+            else: 
+                user_input = input().strip()
 
             if user_input == "exit":
-                print('\33[5mdadahh\33[0m')
+                if is_interactive:
+                    print('\33[5mdadahh\33[0m')
                 break
+
+            if not user_input.strip():
+                if not is_interactive:
+                    continue
+                print('\33[5memptyy oooo\33[0m')
+                continue
 
         except KeyboardInterrupt:
             print()
+            if not is_interactive:
+                break
             continue
 
         except EOFError:
             print()
+            if not is_interactive:
+                break
             continue
 
         print(user_input)
 
-        if not user_input.strip():
-            print('\33[5memptyy oooo\33[0m')
-            continue
-        
-        try:
-            input_args = shlex.split(user_input)
-        except:
-            print("\n\33[1m\33[91mUnknown error occured.\33[0m")
-            continue
+        pipe_cmds = [cmd.strip() for cmd in user_input.split('|')]
 
-        for i, token in enumerate(input_args):
-            print(f'input_args[{i}] = {token}')
+        if len(pipe_cmds) == 1:
+            try:
+                input_args = shlex.split(pipe_cmds[0])
+            except:
+                print("\n\33[1m\33[91mUnknown error occured while parsing arguments.\33[0m")
+                continue
+            
+            if not input_args:
+                continue
+            
+            # for i, token in enumerate(input_args):
+            #     print(f'input_args[{i}] = {token}')
 
-        command = input_args[0]
-        argument = input_args[1:] if len(input_args) > 1 else []
+            command = input_args[0]
+            argument = input_args[1:] if len(input_args) > 1 else []
+
+            single_cmds(command, argument, cwd)
+        else:
+            execute_pipe_cmds(pipe_cmds)
+
+
         print(f'\nCommand: {command}')
         print(f'Argument: {argument}')
 
@@ -49,14 +73,17 @@ def main():
             show_help(command)
             continue
 
+def single_cmds(command, argument, cwd):
+    
         match command:
 
             case "cd":
                 if len(argument) > 0:
                     if argument[0] == "~":
                         os.path.expanduser("~")
+                        return
                     elif argument[0] == ".":
-                        pass
+                        return
                     else:
                         try:
                             os.chdir(f"{argument[0]}")
@@ -65,35 +92,20 @@ def main():
                         except PermissionError:
                             print(f"\n\33[1m\33[91mcd: {argument[0]}: Permission denied\33[0m")
                 else:
-                    os.chdir(os.path.expanduser("~"))
+                    return
 
             case "pwd":
                 print(os.getcwd())
+                return
 
             case "clear":
                 os.system('cls||clear')
+                return
 
             case "ls":
                 try:
-                    if hasattr(os, 'fork'): #check kl os bisa fork or not
-
-                        pid = os.fork()
-
-                        if pid == 0:
-                            print()
-                            if len(argument) == 0: 
-                                os.execvp('ls', ['ls'])
-                            else:
-                                os.execvp('ls', ['ls', *argument])
-
-                            # exec adlh cmd buat executing cmd yg ad d argumenny
-                            # v = vector, p = path
-                            # execvp berbasis path, jd egk perlu path absolut
-                            # intiny execvp(file, args) nyari file ls buat di execute dg argumen yg ad di list
-
-                        elif pid > 0:
-                            finishedpid, status = os.waitpid(pid, 0)
-    
+                    if hasattr(os, 'fork'):
+                        fork_cmd('ls', argument)
                     else: #kl egk pny fork pake ini, windows alternative doang; main ls yg pake fork
                         child = subprocess.Popen(['dir', *argument], 
                                                     stdout=subprocess.PIPE, 
@@ -102,6 +114,7 @@ def main():
                                                     shell=True)
                         stdout, stderr = child.communicate()
                         print(stdout)
+                        return
 
                 except OSError as err:
                     print(f"{err}")
@@ -111,7 +124,7 @@ def main():
                 if len(argument) < 2:
                     print("\n\33[1m\33[91mcp: missing file operand\33[0m")
                     print("\n\33[1m\33[91mTry 'cp --help' for more information\33[0m")
-                    continue
+                    return
                 
                 # last argument = destination
                 dest = argument[-1]
@@ -142,7 +155,7 @@ def main():
                         # mult source tpi dest nya file / gaada
                         if len(sources) > 1:
                             print(f"\n\33[1m\33[91mcp: target '{dest}' is not a directory\33[0m")
-                            continue
+                            return
                         # single source
                         src = sources[0]
                         try:
@@ -169,7 +182,7 @@ def main():
                 if len(argument) < 2:
                     print("\n\33[1m\33[91mmv: missing file operand\33[0m")
                     print("\n\33[1m\33[91mTry 'mv --help' for more information\33[0m")
-                    continue
+                    return
                 
                 dest = argument[-1]
                 sources = argument[:-1]
@@ -198,13 +211,13 @@ def main():
                         # if mult sources but dest is not a directory then errr
                         if len(sources) > 1:
                             print(f"\n\33[1m\33[91mmv: target '{dest}' is not a directory\33[0m")
-                            continue
+                            return
                         
                         src = sources[0]
                         
                         if not os.path.exists(src):
                             print(f"\n\33[1m\33[91mmv: {src}: No such file or directory\33[0m")
-                            continue
+                            return
                         
                         try:
                             # move/rename the single source to destination
@@ -223,7 +236,7 @@ def main():
                 if len(argument) == 0:
                     print("\n\33[1m\33[91mrm: missing operand\33[0m")
                     print("\n\33[1m\33[91mTry 'rm --help' for more information\33[0m")
-                    continue
+                    return
 
                 recursive = False
                 files_remove = []
@@ -236,7 +249,7 @@ def main():
 
                 if len(files_remove) == 0:
                     print("\n\33[1m\33[91mrm: missing operand\33[0m")
-                    continue
+                    return
                 
                 for file in files_remove:
                     try:
@@ -261,14 +274,14 @@ def main():
                 try:
                     if len(argument) == 0:
                         print("\n\33[1m\33[91mkdir: missing operand\33[0m")
-                        continue
+                        return
                     else:
                         parents = "-p" in argument or "-" in argument
                         dirtargets = [arg for arg in argument if arg.lower() != "-p"]
                         
                         if len(dirtargets) == 0:
                                 print("\n\33[1m\33[91mmkdir: missing operand\33[0m")
-                                continue
+                                return
                         
                         for arg in dirtargets:
                             path = os.path.join(cwd, arg)
@@ -298,14 +311,14 @@ def main():
                 try:
                     if len(argument) == 0:
                         print("\n\33[1m\33[91mrmdir: missing operand\33[0m")
-                        continue
+                        return
                     else:
                         parents = "-p" in argument or "-" in argument
                         dirtargets = [arg for arg in argument if arg.lower() != "-p"]
                         
                         if len(dirtargets) == 0:
                                 print("\n\33[1m\33[91mrmdir: missing operand\33[0m")
-                                continue
+                                return
                         
                         for arg in dirtargets:
                             if "/" in arg or "\\" in arg:
@@ -351,6 +364,73 @@ def main():
             
             case _:
                 print('\n\33[1m\33[91mbe patient kitten daddy is implementing it next week ;)\33[0m')
+
+def fork_cmd(command, argument):
+
+    pid = os.fork()
+
+    if pid == 0:
+        print()
+        if len(argument) == 0: 
+            os.execvp(command, [command])
+        else:
+            os.execvp(command, [command, *argument])
+
+    elif pid > 0:
+        finishedpid, status = os.waitpid(pid, 0)
+
+def execute_pipe_cmds(pipedcmdlist):
+    n_cmds = len(pipedcmdlist)
+    prev_pipe = None
+
+    for i, cmd_str in enumerate(pipedcmdlist):
+        try:
+            args = shlex.split(cmd_str)
+        except Exception as err:
+            print(f"\n\33[1m\33[91mError parsing pipeline command: {err}\33[0m")
+
+        if not args:
+            return
+        
+        command = args[0]
+        argument = args[1:] if len(args) > 1 else []
+
+        last_cmd = (i == n_cmds - 1)
+        if not last_cmd:
+            pipe_r, pipe_w = os.pipe()
+
+        if hasattr(os, 'fork'):
+            pid = os.fork()
+        else:
+            print("Fork is not supported on this OS")
+            return
+
+        if pid == 0:
+            if prev_pipe is not None:
+                os.dup2(prev_pipe, 0)
+                os.close(prev_pipe)
+
+            if not last_cmd:
+                os.dup2(pipe_w, 1)
+                os.close(pipe_w)
+                os.close(pipe_r)
+
+            try:
+                os.execvp(command, [command, *argument])
+            except FileNotFoundError:
+                print(f"{command}: command not found")
+                os._exit(1)
+        else:
+            if prev_pipe is not None:
+                os.close(prev_pipe)
+
+            if not last_cmd:
+                os.close(pipe_w)
+                prev_pipe = pipe_r
+        
+    for _ in range(n_cmds):
+        os.waitpid(pid, 0)
+
 
 def show_help(command):
     print(f'\n\33[3m\33[32mHelp: {command}\33[0m\n')
