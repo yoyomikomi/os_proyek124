@@ -38,7 +38,7 @@ def main():
                 break
             continue
 
-        print(user_input)
+        # print(user_input)
 
         pipe_cmds = [cmd.strip() for cmd in user_input.split('|')]
 
@@ -80,7 +80,8 @@ def single_cmds(command, argument, cwd):
             case "cd":
                 if len(argument) > 0:
                     if argument[0] == "~":
-                        os.path.expanduser("~")
+                        homedir = os.path.expanduser("~")
+                        os.chdir(homedir)
                         return
                     elif argument[0] == ".":
                         return
@@ -403,39 +404,79 @@ def execute_pipe_cmds(pipedcmdlist):
 
         if hasattr(os, 'fork'):
             pid = os.fork()
-        else:
-            print("Fork is not supported on this OS")
-            return
+            if pid == 0:
+                if prev_pipe is not None:
+                    os.dup2(prev_pipe, 0)
+                    os.close(prev_pipe)
 
-        if pid == 0:
-            if prev_pipe is not None:
-                os.dup2(prev_pipe, 0)
-                os.close(prev_pipe)
+                if not last_cmd:
+                    os.dup2(pipe_w, 1)
+                    os.close(pipe_w)
+                    os.close(pipe_r)
 
-            if not last_cmd:
-                os.dup2(pipe_w, 1)
-                os.close(pipe_w)
-                os.close(pipe_r)
+                try:
+                    os.execvp(command, [command, *argument])
+                except FileNotFoundError:
+                    print(f"{command}: command not found")
+                    os._exit(1)
+            else:
+                if prev_pipe is not None:
+                    os.close(prev_pipe)
 
+                if not last_cmd:
+                    os.close(pipe_w)
+                    prev_pipe = pipe_r
+
+        for pid in active_pids:
             try:
-                os.execvp(command, [command, *argument])
-            except FileNotFoundError:
-                print(f"{command}: command not found")
-                os._exit(1)
+                os.waitpid(pid, 0)
+            except ChildProcessError:
+                pass
         else:
-            if prev_pipe is not None:
-                os.close(prev_pipe)
+            processes = []
+            prev_stdout = None
 
-            if not last_cmd:
-                os.close(pipe_w)
-                prev_pipe = pipe_r
+            for i, cmd_str in enumerate(pipedcmdlist):
+                try:
+                    args = shlex.split(cmd_str)
+                except Exception as err:
+                    print(f"Error parsing command.")
+                    return
+                if not args: 
+                    continue
 
-    for pid in active_pids:
-        try:
-            os.waitpid(pid, 0)
-        except ChildProcessError:
-            pass
+                if args[0] == 'ls':
+                    args = ['dir'] + args[1:]
+                    useshell = True
+                else: 
+                    useshell = False
+            
+                curr_stdin = prev_stdout if prev_stdout is not None else None
 
+                last_cmd = (i == len(pipedcmdlist) - 1)
+                curr_stdout =  None if last_cmd else subprocess.PIPE
+
+                try:
+                    proc = subprocess.Popen(args, 
+                                            stdin=curr_stdin, 
+                                            stdout=curr_stdout,
+                                            shell=useshell,
+                                            text=True
+                                            )
+                    processes.append(proc)
+
+                    if prev_stdout is not None:
+                        prev_stdout.close()
+                    
+                    prev_stdout = proc.stdout
+
+                except FileNotFoundError:
+                    print(f"{args[0]}: command not found")
+                except Exception as err:
+                    print(f"Error executing {args[0]}: {err}")
+
+            for proc in processes:
+                proc.wait()
 
 def show_help(command):
     print(f'\n\33[3m\33[32mHelp: {command}\33[0m\n')
