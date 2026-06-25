@@ -427,11 +427,11 @@ def execute_pipe_cmds(pipedcmdlist):
                     os.close(pipe_w)
                     prev_pipe = pipe_r
 
-        for pid in active_pids:
-            try:
-                os.waitpid(pid, 0)
-            except ChildProcessError:
-                pass
+            for pid in active_pids:
+                try:
+                    os.waitpid(pid, 0)
+                except ChildProcessError:
+                    pass
         else:
             processes = []
             prev_stdout = None
