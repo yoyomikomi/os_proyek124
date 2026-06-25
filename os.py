@@ -387,22 +387,23 @@ def execute_pipe_cmds(pipedcmdlist):
     active_pids = []
 
     for i, cmd_str in enumerate(pipedcmdlist):
-        try:
-            args = shlex.split(cmd_str)
-        except Exception as err:
-            print(f"\n\33[1m\33[91mError parsing pipeline command: {err}\33[0m")
-
-        if not args:
-            return
-        
-        command = args[0]
-        argument = args[1:] if len(args) > 1 else []
-
-        last_cmd = (i == n_cmds - 1)
-        if not last_cmd:
-            pipe_r, pipe_w = os.pipe()
 
         if hasattr(os, 'fork'):
+            try:
+                args = shlex.split(cmd_str)
+            except Exception as err:
+                print(f"\n\33[1m\33[91mError parsing pipeline command: {err}\33[0m")
+
+            if not args:
+                return
+            
+            command = args[0]
+            argument = args[1:] if len(args) > 1 else []
+
+            last_cmd = (i == n_cmds - 1)
+            if not last_cmd:
+                pipe_r, pipe_w = os.pipe()
+        
             pid = os.fork()
             if pid == 0:
                 if prev_pipe is not None:
@@ -420,6 +421,8 @@ def execute_pipe_cmds(pipedcmdlist):
                     print(f"{command}: command not found")
                     os._exit(1)
             else:
+                active_pids.append(pid)
+
                 if prev_pipe is not None:
                     os.close(prev_pipe)
 
@@ -430,6 +433,7 @@ def execute_pipe_cmds(pipedcmdlist):
             for pid in active_pids:
                 try:
                     os.waitpid(pid, 0)
+                    active_pids.remove(pid)
                 except ChildProcessError:
                     pass
         else:
