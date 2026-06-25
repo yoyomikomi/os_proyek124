@@ -364,14 +364,49 @@ def single_cmds(command, argument, cwd):
                 print("  rmdir                 Remove an empty directory")
             
             case _:
+
                 print('\n\33[1m\33[91mbe patient kitten daddy is implementing it next week ;)\33[0m')
 
+def find_redirection(argument):
+    redirect_file = None
+
+    if '>' in argument:
+        try:
+            idx = argument.index('>')
+            redirect_file = argument[idx + 1].strip()
+            argument = argument[:idx]
+            return redirect_file, argument
+        except IndexError:
+            print("\n\33[1m\33[91mError: No output file specified\33[0m")
+            return None, argument
+    elif '<' in argument:
+        try:
+            idx = argument.index('<')
+            redirect_file = argument[idx + 1].strip()
+            argument = argument[:idx]
+            return redirect_file, argument
+        except IndexError:
+            print("\n\33[1m\33[91mError: No input file specified\33[0m")
+            return None, argument
+    return None, argument
+
 def fork_cmd(command, argument):
+    redirect_file, argument = find_redirection(argument)
 
     pid = os.fork()
 
     if pid == 0:
         print()
+
+        if redirect_file is not None:
+            try:
+                fd = os.open(redirect_file, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o644)
+                os.dup2(fd, 1)
+                os.close(fd)
+            except Exception as e:
+                print(f"Error redirecting output to {redirect_file}: {e}")
+                os._exit(1)
+
         if len(argument) == 0: 
             os.execvp(command, [command])
         else:
@@ -404,8 +439,20 @@ def execute_pipe_cmds(pipedcmdlist):
             if not last_cmd:
                 pipe_r, pipe_w = os.pipe()
         
+            redirect_file, argument = find_redirection(argument)
+            
             pid = os.fork()
             if pid == 0:
+
+                if redirect_file is not None:
+                    try:
+                        fd = os.open(redirect_file, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o644)
+                        os.dup2(fd, 1)
+                        os.close(fd)
+                    except Exception as e:
+                        print(f"Error redirecting output to {redirect_file}: {e}")
+                        os._exit(1)
+
                 if prev_pipe is not None:
                     os.dup2(prev_pipe, 0)
                     os.close(prev_pipe)
